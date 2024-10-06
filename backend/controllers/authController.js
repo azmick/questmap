@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { createUser, findUserByEmail} = require('../models/userModel');
 const { createQuestion,getUserQuestions, updateQuestion, deleteQuestion } = require('../models/questionModel');
+const pool = require('../config/db');
 
 // Multer ile dosya yükleme işlemi
 const storage = multer.diskStorage({
@@ -18,49 +19,50 @@ const storage = multer.diskStorage({
 
 // Register Error Handling
 exports.register = async (req, res) => {
-    const { nickname, email, password } = req.body;
+  const { nickname, email, password } = req.body;
 
-    try {
-        const existingUser = await findUserByEmail(email);
-        if (existingUser) {
-            return res.status(400).json({ message: 'Bu e-posta zaten kullanımda' });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await createUser({ nickname, email, password: hashedPassword });
-
-        res.status(201).json({ message: 'Kayıt başarılı', user: newUser });
-    } catch (error) {
-        console.error('Error registering user:', error);
-        res.status(500).json({ message: 'Sunucu hatası: Kayıt sırasında bir hata oluştu.' });
+  try {
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ message: 'Bu e-posta zaten kullanımda' });
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await createUser({ nickname, email, password: hashedPassword });
+
+    res.status(201).json({ message: 'Kayıt başarılı', user: newUser });
+  } catch (error) {
+    console.error('Error registering user:', error);
+    res.status(500).json({ message: 'Sunucu hatası: Kayıt sırasında bir hata oluştu.' });
+  }
 };
 
 
+// Giriş
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    try {
-        const user = await findUserByEmail(email);
+  try {
+    const user = await findUserByEmail(email);
 
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
-            expiresIn: '1h'
-        });
-
-        res.json({ message: 'Login successful', token, nickname: user.nickname, userId: user.id });
-    } catch (error) {
-        res.status(500).json({ message: 'Error logging in', error });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: '1h'
+    });
+
+    res.json({ message: 'Login successful', token, nickname: user.nickname, userId: user.id });
+  } catch (error) {
+    res.status(500).json({ message: 'Error logging in', error });
+  }
 };
 
 
@@ -82,44 +84,61 @@ exports.getUsernameByEmail = async (req, res) => {
 };
 
 exports.uploadQuestion = async (req, res) => {
-    try {
-      const { lesson, topic } = req.body;
-      const image = req.file;
-      const userId = req.user.id;  // JWT'den doğrulanmış kullanıcı ID'si
+  try {
+    const { lesson, topic, title, description } = req.body;  // Gelen ders ve konu bilgilerini alıyoruz
+    const image = req.file;  // Resim dosyasını multer ile alıyoruz
+    const userId = req.user.id;  // JWT'den doğrulanmış kullanıcı ID'si
   
-      if (!image) {
-        return res.status(400).json({ message: 'Dosya yüklenmedi' });
-      }
-  
-      const newQuestion = await createQuestion({
-        user_id: userId,  // Kullanıcı ID'sini JWT'den aldık
-        lesson,
-        topic,
-        images: [image.filename]
-      });
-  
-      res.status(200).json({ message: 'Soru başarıyla yüklendi', question: newQuestion });
-    } catch (error) {
-      console.error('Resim yüklenirken hata:', error);
-      res.status(500).json({ message: 'Resim yüklenirken bir hata oluştu', error });
+    if (!image) {
+      return res.status(400).json({ message: 'Dosya yüklenmedi' });
     }
-  };
+  
+    const newQuestion = await createQuestion({
+      user_id: userId, 
+      lesson, 
+      topic, 
+      images: [image.filename], 
+      title, 
+      description
+    });
+  
+    res.status(200).json({ message: 'Soru başarıyla yüklendi', question: newQuestion });
+  } catch (error) {
+    console.error('Soru yüklenirken hata:', error);
+    res.status(500).json({ message: 'Soru yüklenirken bir hata oluştu', error });
+  }
+};
+
+
   
   
 
-  // Kullanıcının sorularını getirme
+// Kullanıcının sorularını getirme
 exports.getUserQuestions = async (req, res) => {
-    const { userId } = req.params;
-  
-    try {
-      const questions = await getUserQuestions(userId);
-      res.status(200).json(questions);
-    } catch (error) {
-      console.error('Error fetching questions:', error);
-      res.status(500).json({ message: 'Error fetching questions', error });
-    }
-  };
+  const userId = req.user.id; // JWT'den doğrulanmış kullanıcı ID'si
+  const { lesson, topic } = req.query;
 
+  try {
+    let query = `SELECT * FROM questions WHERE user_id = $1`;
+    const queryParams = [userId];
+
+    if (lesson) {
+      query += ` AND lesson = $2`;
+      queryParams.push(lesson);
+    }
+    if (topic) {
+      query += ` AND topic = $3`;
+      queryParams.push(topic);
+    }
+
+    const result = await pool.query(query, queryParams);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('Error fetching questions:', error);
+    res.status(500).json({ message: 'Error fetching questions', error });
+  }
+};
+  
   // Soru güncelleme
 exports.updateQuestion = async (req, res) => {
     const { questionId } = req.params;
@@ -148,24 +167,26 @@ exports.deleteQuestion = async (req, res) => {
     }
   };
 
-  exports.verifyToken = (req, res, next) => {
-    const authHeader = req.headers.authorization;
+// Token doğrulama middleware
+exports.verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ message: 'Authorization header missing' });
+  }
+
+  const token = authHeader.split(' ')[1];  // 'Bearer <token>' formatından token'ı alıyoruz
+
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Token'ı doğruluyoruz
+    req.user = decoded;  // Kullanıcıyı request'e ekliyoruz
+    next();
+  } catch (error) {
+    res.status(403).json({ message: 'Invalid token' });
+  }
+};
   
-    if (!authHeader) {
-      return res.status(401).json({ message: 'Authorization header missing' });
-    }
-  
-    const token = authHeader.split(' ')[1];  // 'Bearer <token>' formatından token'ı alıyoruz
-  
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-  
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);  // Token'ı doğruluyoruz
-      req.user = decoded;  // Kullanıcı bilgilerini req.user'a ekliyoruz
-      next();  // Middleware işlemi tamamlanıyor, bir sonraki middleware'e geçiyor
-    } catch (error) {
-      res.status(403).json({ message: 'Invalid token' });
-    }
-  };

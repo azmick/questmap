@@ -39,7 +39,7 @@ router.post('/get-username', getUsernameByEmail);
 router.post('/upload-question',verifyToken, upload.single('image'), uploadQuestion);
 
 // Soruları getirme, güncelleme ve silme
-router.get('/questions/:userId', getUserQuestions);
+router.get('/questions/:userId',verifyToken, getUserQuestions);
 router.put('/questions/:questionId', updateQuestion);
 router.delete('/questions/:questionId', deleteQuestion);
 
