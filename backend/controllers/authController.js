@@ -2,8 +2,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { createUser, findUserByEmail} = require('../models/userModel');
-const { createQuestion,getUserQuestions, updateQuestion, deleteQuestion } = require('../models/questionModel');
+const { createQuestion, updateQuestion, deleteQuestion } = require('../models/questionModel');
 const pool = require('../config/db');
+
 
 // Multer ile dosya yükleme işlemi
 const storage = multer.diskStorage({
@@ -190,3 +191,5 @@ exports.verifyToken = (req, res, next) => {
   }
 };
   
+
+
