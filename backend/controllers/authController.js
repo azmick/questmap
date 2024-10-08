@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { createUser, findUserByEmail } = require('../models/userModel');
 const { createQuestion, updateQuestion, deleteQuestion } = require('../models/questionModel');
+const { createUserTest, getUserTestByUserId } = require('../models/userTestModel');
 const pool = require('../config/db');
 const secretKey = process.env.JWT_SECRET;
 
@@ -193,6 +194,44 @@ const verifyToken = (req, res, next) => {
   next();
 };
 
+// Test sonucu kaydetme
+const saveUserTest = async (req, res) => {
+  const userId = req.user.id;
+  const { result } = req.body;
+
+  try {
+      // Kullanıcının zaten bir testi var mı kontrol et
+      const existingTest = await getUserTestByUserId(userId);
+      if (existingTest) {
+          return res.status(400).json({ message: 'Bu testi zaten çözdünüz.' });
+      }
+
+      // Yeni test sonucu oluştur
+      const newTest = await createUserTest(userId, result);
+      res.status(201).json({ message: 'Test sonucu başarıyla kaydedildi', test: newTest });
+  } catch (error) {
+      console.error('Test sonucu kaydedilirken hata:', error);
+      res.status(500).json({ message: 'Test sonucu kaydedilirken bir hata oluştu', error });
+  }
+};
+
+// Test sonucunu getirme
+const getUserTest = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+      const userTest = await getUserTestByUserId(userId);
+      if (!userTest) {
+          return res.status(404).json({ message: 'Test sonucu bulunamadı' });
+      }
+
+      res.status(200).json({ test: userTest });
+  } catch (error) {
+      console.error('Test sonucu alınırken hata:', error);
+      res.status(500).json({ message: 'Test sonucu alınırken bir hata oluştu', error });
+  }
+};
+
 // Dışa aktarımlar
 module.exports = {
   validateToken,
@@ -203,5 +242,7 @@ module.exports = {
   uploadQuestion,
   getUserQuestions,
   updateUserQuestion,
-  deleteUserQuestion
+  deleteUserQuestion,
+  saveUserTest,
+  getUserTest
 };

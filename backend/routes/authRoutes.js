@@ -8,7 +8,9 @@ const {
   updateUserQuestion, 
   deleteUserQuestion, 
   verifyToken,
-  validateToken
+  validateToken,
+  saveUserTest,
+  getUserTest
 } = require('../controllers/authController');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
@@ -62,6 +64,12 @@ router.post('/verify-token', (req, res) => {
   } else {
     res.status(401).json({ message: 'Invalid or expired token' });
   }
+});
+
+router.post('/save-test', verifyToken, saveUserTest);
+router.get('/get-test', verifyToken, (req, res) => {
+  console.log('GET /get-test called');
+  getUserTest(req, res);
 });
 
 module.exports = router;
