@@ -96,7 +96,7 @@ const getUsernameByEmail = async (req, res) => {
 // Soru yükleme işlemi
 const uploadQuestion = async (req, res) => {
   try {
-    const { lesson, topic, title, description } = req.body;
+    const { lesson, topic, description } = req.body;
     const image = req.file;
     const userId = req.user.id;
 
@@ -109,7 +109,6 @@ const uploadQuestion = async (req, res) => {
       lesson,
       topic,
       images: [image.filename],
-      title,
       description
     });
 
