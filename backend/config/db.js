@@ -17,4 +17,15 @@ const pool = new Pool({
     port: process.env.DB_PORT
 });
 
+// Bağlantıyı test ediyoruz
+pool.connect()
+    .then(client => {
+        console.log("Database connected successfully");
+        client.release(); // Bağlantıyı serbest bırak
+    })
+    .catch(err => {
+        console.error('Error connecting to the database:', err);
+        process.exit(1); // Hata durumunda uygulamayı sonlandır
+    });
+
 module.exports = pool;
