@@ -1,14 +1,13 @@
 const pool = require('../config/db');
 
-// Soru oluşturma fonksiyonu
 const createQuestion = async (questionData) => {
   const { user_id, lesson, topic, images, description } = questionData;
 
   try {
     // Veritabanına soruyu ekliyoruz
     const result = await pool.query(
-      `INSERT INTO public.questions (user_id, lesson, topic, images, description, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`,
+      `INSERT INTO public.questions (user_id, lesson, topic, images, description)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [user_id, lesson, topic, images, description]
     );
     
@@ -19,6 +18,7 @@ const createQuestion = async (questionData) => {
     throw new Error('Error creating question');
   }
 };
+
 
 const getUserQuestions = async (userId, lesson, topic) => {
   let query = `SELECT * FROM public.questions WHERE user_id = $1`;
